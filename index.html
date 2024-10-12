@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messaging Segment Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh; /* Full height */
+            background-color: #f4f4f4;
+            display: flex; /* Flexbox for centering */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+        }
+        .container {
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto; /* Allow scrolling if content overflows */
+        }
+        h1 {
+            text-align: center;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+            transition: background-color 0.3s ease;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e7f4e4;
+            border: 1px solid #c4e1c4;
+        }
+        .warning {
+            color: red;
+        }
+        .error {
+            background-color: #ffcccc;
+        }
+        .segments-container {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .segment {
+            padding: 5px;
+            margin: 2px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .valid {
+            background-color: #c8e6c9; /* Light green for valid characters */
+        }
+        .invalid {
+            background-color: #ffcccb; /* Light red for invalid characters */
+        }
+        .exceed {
+            background-color: yellow; /* Yellow background for exceeding characters */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Messaging Segment Calculator</h1>
+        <label for="message">SMS Message</label>
+        <textarea id="message" placeholder="Enter your message here..." oninput="autoDetectEncoding(); calculateSegments();"></textarea>
+        
+        <label for="encoding">Encoding</label>
+        <select id="encoding" onchange="calculateSegments()">
+            <option value="GSM-7">GSM-7</option>
+            <option value="UCS-2">UCS-2</option>
+        </select>
+        
+        <div class="result" id="result" style="display: none;"></div>
+        <div id="parsedMessage" style="display: none; margin-top: 20px;">
+            <strong>MESSAGE PARSED:</strong><br>
+            <span id="parsedText"></span>
+            <br><strong>SEGMENTS:</strong>
+            <div id="segmentsContainer" class="segments-container"></div>
+        </div>
+    </div>
+
+    <script>
+        function autoDetectEncoding() {
+            const message = document.getElementById('message').value;
+            const nonGSM7Regex = /[^\x00-\x7F]/; // Matches non-GSM-7 characters
+            const encodingSelect = document.getElementById('encoding');
+            const messageArea = document.getElementById('message');
+
+            if (nonGSM7Regex.test(message)) {
+                encodingSelect.value = "UCS-2";
+                messageArea.classList.add('error'); // Add error class for non-English characters
+            } else {
+                encodingSelect.value = "GSM-7";
+                messageArea.classList.remove('error'); // Remove error class if only English characters
+            }
+        }
+
+        function calculateSegments() {
+            const message = document.getElementById('message').value;
+            const encoding = document.getElementById('encoding').value;
+            let numSegments, numChars, messageSize, maxChars;
+
+            if (encoding === "GSM-7") {
+                numChars = message.length; // Approximation for GSM-7
+                numSegments = Math.ceil(numChars / 160);
+                messageSize = numChars; // Size in bytes (1 byte per char)
+                maxChars = 160; // Max characters per segment for GSM-7
+            } else {
+                numChars = message.length;
+                numSegments = Math.ceil(numChars / 70); // UCS-2 has 70 characters per segment
+                messageSize = numChars * 2; // Size in bytes (2 bytes per char)
+                maxChars = 70; // Max characters per segment for UCS-2
+            }
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <strong>Results:</strong><br>
+                Number of segments: ${numSegments}<br>
+                Number of characters: ${numChars}<br>
+                Message size: ${messageSize} bytes<br>
+            `;
+
+            // Check if the message passes the limits
+            if (numChars > maxChars) {
+                resultDiv.innerHTML += `<span class="warning">Warning: Message exceeds the maximum characters per segment!</span>`;
+            } else {
+                resultDiv.innerHTML += `<span>Message passes the segment limits.</span>`;
+            }
+
+            displayParsedMessage(message, numChars);
+        }
+
+        function displayParsedMessage(message, numChars) {
+            const parsedMessageDiv = document.getElementById('parsedMessage');
+            const parsedTextSpan = document.getElementById('parsedText');
+            const segmentsContainer = document.getElementById('segmentsContainer');
+            
+            parsedMessageDiv.style.display = 'block';
+            parsedTextSpan.innerHTML = message; // Display the message
+
+            segmentsContainer.innerHTML = ''; // Clear previous segments
+            for (let i = 0; i < message.length; i++) {
+                const char = message[i];
+                const isValid = /^[\x00-\x7F]$/.test(char); // Check validity
+                const className = isValid ? 'valid' : 'invalid';
+                
+                const segmentDiv = document.createElement('div');
+                segmentDiv.className = `segment ${className}`; // Assign class for styling
+
+                // Highlight characters exceeding 159 characters
+                if (i >= 159) {
+                    segmentDiv.classList.add('exceed');
+                }
+
+                segmentDiv.textContent = char; // Display character
+                segmentsContainer.appendChild(segmentDiv); // Add to container
+            }
+        }
+    </script>
+</body>
+</html>
